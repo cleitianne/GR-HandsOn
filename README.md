@@ -1,180 +1,151 @@
-Markdown
+# Atividade Prática de Gerenciamento de Redes (Hands On - Part 3)
 
-# Atividade Prática de Gerenciamento de Redes: Extensão de Agente SNMP
-
-Este projeto documenta a implementação de uma extensão para o agente SNMP nativo do Linux (Net-SNMP) utilizando o protocolo `pass` e scripts em Python. O objetivo foi criar MIBs personalizadas para monitoramento de processos, controle de serviços e envio de notificações (Traps) para um gerente externo.
-
-## 📂 Estrutura do Projeto
+Este repositório contém a implementação da extensão do agente SNMP (Net-SNMP).
 
 ```text
-.
-├── MIBs/                   # Arquivos de definição das MIBs (.txt)
-│   ├── CUSTOM-CONTROL-MIB.txt
-│   └── CUSTOM-PROCESS-MIB.txt
-├── scripts/                # Scripts Python executados pelo Agente
-│   ├── snmp_control.py
-│   └── snmp_table.py
-├── img/                    # Evidências (Prints dos testes)
-│   ├── tarefa1_control.png
-│   ├── tarefa2_table.png
-│   └── tarefa3_trap.png
-└── README.md               # Documentação do projeto
-⚙️ Ambiente de Testes
-Agente: Máquina Virtual Ubuntu Server 24.04 (IP: 10.0.0.X)
+Equipe: 
 
-Gerente: Windows 10/11 com iReasoning MIB Browser
+- ANA KAROLINE BORGES CARNEIRO - 584246
+- CLEITIANNE OLIVEIRA DA SILVA - 584331
+- LARISSE CRUZ LUCAS - 584253
+```
+## 📋 Pré-requisitos
 
-Conectividade: Rede em modo Bridge
+* **Agente:** Ubuntu 24.04 LTS (IP: `10.0.0.X`)
+* **Gerente:** Windows com **iReasoning MIB Browser**
+* **Pacotes Necessários (Ubuntu):**
+    ```bash
+    sudo apt update
+    sudo apt install snmp snmpd libsnmp-dev python3 -y
+    ```
 
-Dependências do Agente:
+---
 
-snmp, snmpd, libsnmp-dev
+## ⚙️  Configuração
 
-python3
+Antes de executar as tarefas, é necessário configurar o arquivo `/etc/snmp/snmpd.conf` para permitir acesso externo e integrar os scripts.
 
-🚀 Configuração do Agente (snmpd.conf)
-Para que o agente execute os scripts e aceite conexões externas, o arquivo /etc/snmp/snmpd.conf foi configurado da seguinte forma:
+1.  Ajuste o arquivo de configuração:
+    ```bash
+    sudo nano /etc/snmp/snmpd.conf
+    ```
+2.  Reinicie o serviço sempre que alterar este arquivo:
+    ```bash
+    sudo service snmpd restart
+    ```
 
-Plaintext
+---
 
-# 1. Escutar em todas as interfaces
-agentAddress udp:161
+## 📝 Tarefa #01: Controle de Serviço (Custom Control)
 
-# 2. Comunidades de acesso
-rocommunity public
-rwcommunity private
+**Objetivo:** Ler o status do snmpd e reiniciar o serviço remotamente.
 
-# 3. Integração com scripts Python (Pass Persist)
-pass .1.3.6.1.4.1.99999.1 /usr/local/bin/snmp_control.py
-pass .1.3.6.1.4.1.99999.2 /usr/local/bin/snmp_table.py
+**Arquivo MIB:** 
+```text
+CUSTOM-CONTROL-MIB.txt
+```
+O arquivo de definição desta MIB está disponível na pasta MIBs deste repositório no GitHub.
 
-# 4. Configuração de Trap (Destino: Gerente Windows)
-trapsink 192.168.0.XXX public
-1️⃣ Tarefa 1: Controle de Serviço (Get/Set)
-Objetivo: Monitorar se o serviço SNMP está ativo e permitir reiniciá-lo remotamente via comando Set.
+***Ação:*** Carregue este arquivo no iReasoning MIB Browser para visualizar os nomes dos objetos
 
-Código: scripts/snmp_control.py
-Python
+### 1. Script (`/usr/local/bin/snmp_control.py`)
+Crie o arquivo e cole o código disponibilizado no github. Dê permissão de execução: `sudo chmod +x /usr/local/bin/snmp_control.py`.
 
-#!/usr/bin/python3
-import sys
-import subprocess
-import os
+### 2. Como testar no iReasoning
 
-REQ_OID = ".1.3.6.1.4.1.99999.1"
+- Address: IP do Ubuntu
 
-def get_status():
-    try:
-        # Verifica status do systemd
-        output = subprocess.check_output(["systemctl", "is-active", "snmpd"]).decode().strip()
-        print(REQ_OID)
-        print("integer")
-        # Retorna 1 (Up) ou 2 (Down)
-        print("1" if output == "active" else "2")
-    except:
-        print(REQ_OID)
-        print("integer")
-        print("2")
+- OID: .1.3.6.1.4.1.99999.1
 
-def set_status(value):
-    try:
-        val = int(value)
-        if val == 3: # Restart
-            os.system("(sleep 2; sudo systemctl restart snmpd) &")
-        elif val == 2: # Stop
-            os.system("(sleep 2; sudo systemctl stop snmpd) &")
-    except:
-        pass
+- Operação GET: Deve retornar 1 (Running).
 
-if len(sys.argv) > 1:
-    cmd = sys.argv[1]
-    if cmd == "-g":
-        get_status()
-    elif cmd == "-s" and len(sys.argv) > 4:
-        set_status(sys.argv[4])
-📸 Evidência
-Teste realizado alterando o valor para 3 (restart) e verificando o uptime do serviço.
+- Operação SET:
 
-2️⃣ Tarefa 2: Tabela de Processos (Walk/Table)
-Objetivo: Retornar uma tabela SNMP contendo PID, Nome, CPU, Memória e Uptime dos 5 processos que mais consomem CPU no sistema.
+- Mude Operations para Set.
 
-Código: scripts/snmp_table.py
-Python
+- Data Type: Integer.
 
-#!/usr/bin/python3
-import sys
-import subprocess
+- Value: 3 (Para reiniciar).
 
-BASE_OID = ".1.3.6.1.4.1.99999.2.1"
+- Clique em Go. (O serviço irá reiniciar no Linux).
 
-def get_processes():
-    # Uso de caminho absoluto para o comando ps
-    cmd = "/usr/bin/ps -eo pid,comm,pcpu,rss,etime --sort=-pcpu --no-headers | head -n 5"
-    output = subprocess.check_output(cmd, shell=True).decode().strip().split('\n')
-    
-    processes = []
-    for line in output:
-        parts = line.split(None, 4)
-        if len(parts) == 5:
-            pid, name, cpu, mem_kb, uptime = parts
-            processes.append({
-                'pid': int(pid), 'name': name, 'cpu': cpu, 
-                'mem': int(int(mem_kb) / 1024), 'uptime': uptime
-            })
-    return processes
+### 📸 Evidências (Tarefa 1)
+Abaixo estão os prints comprovando o funcionamento da leitura de status e do comando de reinício.
 
-def handle_get(oid):
-    processes = get_processes()
-    req_oid = oid.replace(BASE_OID + ".", "")
-    try:
-        col, pid = map(int, req_oid.split('.'))
-    except: return
+![Evidência 1 - Get](\img\Get.jpeg)
+![Evidência 2 - Set](\img\Set.jpeg)
 
-    proc = next((p for p in processes if p['pid'] == pid), None)
-    if not proc: return
+---
+## 📝 Tarefa #02: Tabela de Processos
 
-    print(oid)
-    if col == 1: print("integer\n" + str(proc['pid']))
-    elif col == 2: print("string\n" + proc['name'])
-    elif col == 3: print("string\n" + proc['cpu'])
-    elif col == 4: print("integer\n" + str(proc['mem']))
-    elif col == 5: print("string\n" + proc['uptime'])
+**Objetivo:** Listar PID, Nome, CPU, Memória e Uptime via tabela SNMP.
 
-def handle_getnext(oid):
-    processes = get_processes()
-    processes.sort(key=lambda x: x['pid'])
-    
-    # Lógica simplificada de GetNext (Iteração sobre colunas e PIDs)
-    # ... (Ver arquivo completo na pasta scripts)
-📸 Evidência
-Visualização da tabela no iReasoning MIB Browser (GetBulk desativado).
+**Arquivo MIB:** 
+```text
+CUSTOM-PROCESS-MIB.txt
+```
 
-3️⃣ Tarefa 3: Notificações (Traps)
-Objetivo: Configurar o agente para enviar alertas espontâneos (Traps) para o gerente na porta 162.
+O arquivo contendo a estrutura da tabela está disponível na pasta MIBs do repositório.
 
-Configuração e Execução
-Adicionado trapsink [IP_GERENTE] public no snmpd.conf.
+***Ação:*** Importe este arquivo no seu navegador MIB para estruturar corretamente as colunas da tabela de processos.
 
-Disparo manual do trap via terminal do Ubuntu:
 
-Bash
+### 1. Script (`/usr/local/bin/snmp_table.py`)
+Crie o arquivo no diretório indicado, copie e cole o conteúdo do arquivo snmp_table.py disponível neste repositório GitHub e dê permissão de execução: `sudo chmod +x /usr/local/bin/snmp_table.py`.
 
-sudo snmptrap -v 2c -c public 192.168.0.XXX "" .1.3.6.1.4.1.99999.3 \
-.1.3.6.1.4.1.99999.3.1 s "Alerta: Falha Critica no Sistema"
-📸 Evidência
-Trap recebido no Trap Receiver do iReasoning.
 
-🛠️ Como Reproduzir
-Clone este repositório.
+### 2. Como testar no iReasoning
 
-Copie os arquivos da pasta scripts para /usr/local/bin/ na VM Ubuntu.
+Execução:
 
-Dê permissão de execução: chmod +x /usr/local/bin/*.py.
+- Operação: Selecione Walk (ou Get Subtree).
 
-Substitua o arquivo /etc/snmp/snmpd.conf pelas configurações listadas acima.
+- Resultado: A tabela deve preencher com os processos listados.
 
-Reinicie o serviço: sudo service snmpd restart.
+### 📸 Evidências (Tarefa 2)
+Abaixo estão os prints da execução do Walk e a tabela preenchida no Mib Browser.
 
-Importe as MIBs da pasta MIBs no seu navegador SNMP favorito.
+![Evidência 1 - Tarefa 2](img/Tabela.jpeg)
+![Evidência 2 - Tarefa 2](img/TableView.jpeg)
 
-Disciplina: Gerenciamento de Redes
+
+## 📝 Tarefa #03: Traps (Notificações)
+
+**Objetivo:** Enviar alertas de "Alta Temperatura" e "Disco Cheio".
+
+### 1. Arquivo MIB (`CUSTOM-TRAPS-MIB.txt`)
+O arquivo contendo a estrutura da tabela está disponível na pasta `MIBs` deste repositório GitHub. Importe-o no Mib Browser antes de realizar os testes.
+
+1. Preparação no Windows (iReasoning)
+- No menu Tools > Trap Receiver.
+
+- Verifique se está escutando na porta 162 e clique em "Start".
+
+```text 
+Atenção: Se não chegar nada, desative temporariamente o Firewall do Windows ou permita a porta UDP 162.
+```
+
+2. Execução no Ubuntu
+Execute os comandos abaixo no terminal para simular os problemas descritos. Lembre-se de substituir 192.168.X.X pelo IP do seu Windows.
+
+- Trap 1: Temperatura Alta (.0.1)
+
+```bash
+sudo snmptrap -v 2c -c public 192.168.X.X "" .1.3.6.1.4.1.99999.0.1 \
+.1.3.6.1.4.1.99999.0.1 s "ALERTA: Temperatura > 70C"
+```
+
+- Trap 2: Disco Cheio (.0.2)
+```bash
+sudo snmptrap -v 2c -c public 192.168.X.X "" .1.3.6.1.4.1.99999.0.2 \
+.1.3.6.1.4.1.99999.0.2 s "CRITICO: Disco 95% cheio"
+```
+
+```text
+Verificação
+Olhe a janela "Trap Receiver" no iReasoning. As mensagens devem aparecer instantaneamente.
+.1.3.6.1.4.1.99999.0.2 s "CRITICO: Disco 95% cheio"
+```
+### 📸 Evidências (Tarefa 3)
+![Evidência 1 - Tarefa 3](img/Tarefa3.jpeg)
+![Evidência 2 - Tarefa 3](img/Traps.jpeg)

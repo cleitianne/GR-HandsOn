@@ -4,7 +4,6 @@ import sys
 # OID BASE da tabela
 BASE_OID = ".1.3.6.1.4.1.99999.2.1"
 
-# Dados estaticos simulando processos reais
 raw_data = {
     ".1.10": ["integer", "1001"],       # PID
     ".2.10": ["string", "python_test"], # Nome
@@ -38,7 +37,7 @@ def handle_get(req_oid):
 def handle_next(req_oid):
     try:
         req_tuple = tuple(int(x) for x in req_oid.strip('.').split('.'))
-    except ValueError: # Se OID invalido, retorna o primeiro
+    except ValueError: 
         print(sorted_entries[0][1]); print(sorted_entries[0][2]); print(sorted_entries[0][3])
         sys.exit(0)
 
