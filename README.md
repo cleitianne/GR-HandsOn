@@ -72,7 +72,7 @@ Crie o arquivo e cole o código disponibilizado no github. Dê permissão de exe
 ### 📸 Evidências (Tarefa 1)
 Abaixo estão os prints comprovando o funcionamento da leitura de status e do comando de reinício.
 
-![Evidência 1 - Get](\img\Get.jpeg)
+![Evidência 1 - Get](GR-HandsOn\img\Get.jpeg)
 ![Evidência 2 - Set](\img\Set.jpeg)
 
 ---
